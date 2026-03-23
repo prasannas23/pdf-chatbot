@@ -12,7 +12,7 @@ from transformers import pipeline
 st.set_page_config(page_title="PDF Chatbot FREE", layout="wide")
 st.title("📄 PDF Chatbot (100% FREE 🆓)")
 
-# 🔥 Cache PDF processing
+# 🔥 CACHE PDF PROCESSING
 @st.cache_resource
 def process_pdf(file_path):
     loader = PyPDFLoader(file_path)
@@ -30,13 +30,13 @@ def process_pdf(file_path):
     vectorstore = FAISS.from_documents(chunks, embeddings)
     return vectorstore
 
-# 🔥 Load FREE model
+# 🔥 CACHE MODEL
 @st.cache_resource
 def load_llm():
     pipe = pipeline(
-        "text-generation",
-        model="google/flan-t5-base",
-        max_length=512
+        "text2text-generation",   # IMPORTANT (fix)
+        model="google/flan-t5-large",  # better model
+        max_length=256
     )
     return HuggingFacePipeline(pipeline=pipe)
 
@@ -59,20 +59,39 @@ if uploaded_file:
     if ask and query:
         with st.spinner("Thinking... 🤖"):
 
-            docs = vectorstore.similarity_search(query, k=3)
-            context = "\n".join([doc.page_content for doc in docs])
+            # 🔥 Use top 1 chunk (reduce noise)
+            docs = vectorstore.similarity_search(query, k=1)
+            context = docs[0].page_content
 
-            response = llm.invoke(
-                f"""
-                Answer based only on the context.
+            # 🔥 Strong prompt
+            prompt = f"""
+You are an intelligent assistant.
 
-                Context:
-                {context}
+Answer the question ONLY using the context below.
+Give a SHORT and DIRECT answer.
+Do NOT repeat the context.
+If answer is not found, say "Not found".
 
-                Question:
-                {query}
-                """
-            )
+Context:
+{context}
+
+Question:
+{query}
+
+Answer:
+"""
+
+            response = llm.invoke(prompt)
+
+            # 🔥 Clean output
+            answer = str(response).strip()
+
+            # Remove repeated context if any
+            if context in answer:
+                answer = answer.replace(context, "").strip()
+
+            if not answer:
+                answer = "⚠️ No response from model"
 
             st.markdown("### 💡 Answer:")
-            st.write(response)
+            st.write(answer)
