@@ -30,12 +30,12 @@ def process_pdf(file_path):
     vectorstore = FAISS.from_documents(chunks, embeddings)
     return vectorstore
 
-# 🔥 CACHE MODEL
+# 🔥 CACHE MODEL (FIXED VERSION)
 @st.cache_resource
 def load_llm():
     pipe = pipeline(
-        "text2text-generation",   # IMPORTANT (fix)
-        model="google/flan-t5-large",  # better model
+        task="text2text-generation",   # ✅ supported for flan-t5
+        model="google/flan-t5-base",  # ✅ stable model
         max_length=256
     )
     return HuggingFacePipeline(pipeline=pipe)
@@ -59,7 +59,7 @@ if uploaded_file:
     if ask and query:
         with st.spinner("Thinking... 🤖"):
 
-            # 🔥 Use top 1 chunk (reduce noise)
+            # 🔥 Reduce noise (important)
             docs = vectorstore.similarity_search(query, k=1)
             context = docs[0].page_content
 
@@ -86,7 +86,6 @@ Answer:
             # 🔥 Clean output
             answer = str(response).strip()
 
-            # Remove repeated context if any
             if context in answer:
                 answer = answer.replace(context, "").strip()
 
