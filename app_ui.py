@@ -5,18 +5,12 @@ from langchain_community.document_loaders import PyPDFLoader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_community.vectorstores import FAISS
 
-from langchain_openai import OpenAIEmbeddings, ChatOpenAI
+from langchain_community.embeddings import HuggingFaceEmbeddings
+from langchain_community.llms import HuggingFacePipeline
+from transformers import pipeline
 
-# Page config
-st.set_page_config(page_title="PDF Chatbot", layout="wide")
-st.title("📄 PDF Chatbot (Online 🚀)")
-
-# 🔐 Load API key
-openai_api_key = st.secrets.get("OPENAI_API_KEY")
-
-if not openai_api_key:
-    st.error("❌ Please add OPENAI_API_KEY in Streamlit secrets")
-    st.stop()
+st.set_page_config(page_title="PDF Chatbot FREE", layout="wide")
+st.title("📄 PDF Chatbot (100% FREE 🆓)")
 
 # 🔥 Cache PDF processing
 @st.cache_resource
@@ -25,24 +19,26 @@ def process_pdf(file_path):
     documents = loader.load()
 
     splitter = RecursiveCharacterTextSplitter(
-        chunk_size=500,
-        chunk_overlap=50
+        chunk_size=800,
+        chunk_overlap=100
     )
     chunks = splitter.split_documents(documents)
 
-    embeddings = OpenAIEmbeddings(openai_api_key=openai_api_key)
-    vectorstore = FAISS.from_documents(chunks, embeddings)
+    # FREE embeddings
+    embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
 
+    vectorstore = FAISS.from_documents(chunks, embeddings)
     return vectorstore
 
-# 🔥 Cache LLM
+# 🔥 Load FREE model
 @st.cache_resource
 def load_llm():
-    return ChatOpenAI(
-        model="gpt-3.5-turbo",
-        temperature=0,
-        openai_api_key=openai_api_key
+    pipe = pipeline(
+        "text-generation",
+        model="google/flan-t5-base",
+        max_length=512
     )
+    return HuggingFacePipeline(pipeline=pipe)
 
 # Upload PDF
 uploaded_file = st.file_uploader("📂 Upload your PDF", type="pdf")
@@ -57,7 +53,6 @@ if uploaded_file:
     vectorstore = process_pdf(file_path)
     llm = load_llm()
 
-    # Input + Button
     query = st.text_input("💬 Ask a question:")
     ask = st.button("Ask")
 
@@ -69,9 +64,7 @@ if uploaded_file:
 
             response = llm.invoke(
                 f"""
-                You are a helpful assistant.
-                Answer ONLY from the given context.
-                If not found, say "Not found in document".
+                Answer based only on the context.
 
                 Context:
                 {context}
@@ -81,10 +74,5 @@ if uploaded_file:
                 """
             )
 
-            answer = response.content if hasattr(response, "content") else str(response)
-
-            if not answer.strip():
-                answer = "⚠️ No response from model"
-
             st.markdown("### 💡 Answer:")
-            st.write(answer)
+            st.write(response)
